@@ -24,37 +24,38 @@ try:
 
         # --- 3. BUCLE DE COMUNICACIÓN ---
         # Iniciamos un bucle para permitir al usuario enviar múltiples mensajes.
-        while True:
-            comando = input("Introduzca un comando:\n- 'get_status'\n- 'get_temp'\n- 'exit'\n> ")
+        sesion_activa = True
+        while sesion_activa:
+            comando = input(
+                "Introduzca un comando:\n- 'get_status'\n- 'get_temp'\n- 'exit'\n> "
+            ).strip()
 
-            if comando.lower() == 'exit':
-                # Enviamos el comando 'exit' para cerrar la sesión correctamente en el servidor
-                client_socket.sendall('exit'.encode('utf-8'))
-                # Esperamos la hipotética despedida del servidor, pero solo unos segundos
-                # En el ejemplo del servidor vemos que no es necesario, el timeout
-                # ya que tras exit() el servidor cierra la conexión directamente.
-                # y recv() ya no bloquearía.
-                # Se añade a efectos educativos.
-                client_socket.settimeout(2.0)  # segundos
+            # Validamos que el comando no esté vacío: enviar b"" con sendall() no transmite
+            # ningún byte por la red y dejaría a cliente y servidor esperando indefinidamente en recv().
+            if not comando:
+                print("Aviso: El comando no puede estar vacío.")
+            else:
+                if comando.lower() == 'exit':
+                    sesion_activa = False
+                    # Establecemos un tiempo máximo de espera (2 s) para la despedida del servidor
+                    client_socket.settimeout(2.0)
+
+                # Enviamos el comando al servidor
+                client_socket.sendall(comando.encode('utf-8'))
+
+                # Recibimos la respuesta del servidor y manejamos posibles errores
                 try:
-                    respuesta_servidor = client_socket.recv(1024).decode('utf-8')
-                    print(f"Respuesta del servidor: {respuesta_servidor}")
+                    data = client_socket.recv(1024)
+                    if not data:
+                        print("El servidor ha cerrado la conexión.")
+                        sesion_activa = False
+                    else:
+                        respuesta_servidor = data.decode('utf-8')
+                        print(f"Respuesta del servidor: {respuesta_servidor}")
                 except socket.timeout:
-                    print("No se recibió respuesta de cierre del servidor (timeout). Cerrando sesión igualmente.")
-                except Exception:
-                    print("No se pudo recibir la respuesta de cierre.")
-                client_socket.settimeout(None)  # Quitar el timeout
-                print("Cerrando sesión.")
-                break
-
-            client_socket.sendall(comando.encode('utf-8'))
-
-            # Recibimos la respuesta del servidor y manejamos posibles errores de decodificación
-            try:
-                respuesta_servidor = client_socket.recv(1024).decode('utf-8')
-                print(f"Respuesta del servidor: {respuesta_servidor}")
-            except UnicodeDecodeError:
-                print("Error al decodificar la respuesta del servidor.")
+                    print("No se recibió respuesta de cierre del servidor (timeout).")
+                except UnicodeDecodeError:
+                    print("Error al decodificar la respuesta del servidor.")
 
     # --- 4. CIERRE ---
     # Al salir del bucle, el bloque 'with' se encargará de cerrar el socket.

@@ -38,41 +38,40 @@ client_connection, client_address = server_socket.accept()
 print(f"¡Cliente de comandos conectado desde {client_address}!")
 
 # --- 5. BUCLE DE PROCESAMIENTO DE COMANDOS ---
-while True:
+sesion_activa = True
+while sesion_activa:
     data = client_connection.recv(1024)
     if not data:
         print("El cliente ha cerrado la sesión.")
-        break
-
-    # Intentamos decodificar el comando recibido
-    try:
-        comando_recibido = data.decode('utf-8')
-    except UnicodeDecodeError:
-        print("Error al decodificar el comando recibido.")
-        client_connection.sendall("Error: comando no válido (decodificación)".encode('utf-8'))
-        continue
-
-    print(f"Comando recibido: '{comando_recibido}'")
-
-    # Procesamiento de comandos
-    if comando_recibido.lower() == 'get_status':
-        # Responde con el estado del sistema
-        respuesta = "STATUS: OK, 100%"
-    elif comando_recibido.lower() == 'get_temp':
-        # Responde con la temperatura simulada
-        respuesta = "TEMP: 25.3 C"
-    elif comando_recibido.lower() == 'exit':
-        # Permite al cliente cerrar la sesión de forma educada
-        respuesta = "Sesión finalizada por el cliente. ¡Hasta pronto!"
-        # client_connection.sendall(respuesta.encode('utf-8'))
-        print("El cliente ha solicitado salir.")
-        break
+        sesion_activa = False
     else:
-        # Comando no reconocido
-        respuesta = f"Comando '{comando_recibido}' no reconocido."
+        # Intentamos decodificar el comando recibido
+        try:
+            comando_recibido = data.decode('utf-8').strip()
+            print(f"Comando recibido: '{comando_recibido}'")
 
-    # Enviamos la respuesta al cliente (si no es exit)
-    if comando_recibido.lower() != 'exit':
+            # Procesamiento de comandos
+            cmd_lower = comando_recibido.lower()
+            if cmd_lower == 'get_status':
+                # Responde con el estado del sistema
+                respuesta = "STATUS: OK, 100%"
+            elif cmd_lower == 'get_temp':
+                # Responde con la temperatura simulada
+                respuesta = "TEMP: 25.3 C"
+            elif cmd_lower == 'exit':
+                # Permite al cliente cerrar la sesión de forma educada
+                print("El cliente ha solicitado salir.")
+                respuesta = "Sesión finalizada por el cliente. ¡Hasta pronto!"
+                sesion_activa = False
+            else:
+                # Comando no reconocido
+                respuesta = f"Comando '{comando_recibido}' no reconocido."
+
+        except UnicodeDecodeError:
+            print("Error al decodificar el comando recibido.")
+            respuesta = "Error: comando no válido (decodificación)"
+
+        # Enviamos la respuesta al cliente
         client_connection.sendall(respuesta.encode('utf-8'))
 
 # --- 6. CIERRE ---
